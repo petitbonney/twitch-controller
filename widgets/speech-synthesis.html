@@ -5,9 +5,7 @@
   </head>
   <body>
     <script>
-      const HOST = "localhost";
-      const PORT = 4040;
-      const socket = io(`ws://${HOST}:${PORT}`);
+      const socket = io("ws://localhost:8080");
 
       let voices;
       speechSynthesis.onvoiceschanged = () => {
