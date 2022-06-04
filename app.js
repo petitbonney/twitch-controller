@@ -13,6 +13,7 @@ const UNAUTHORIZE = 401;
 const NOT_FOUND = 404;
 
 expand.expand(dotenv.config());
+const streamer = process.env.STREAMER;
 const oauth_uri = process.env.OAUTH_URI;
 const port = process.env.API_PORT;
 const client_id = process.env.CLIENT_ID;
@@ -25,7 +26,7 @@ console.log("OAuth URI:", oauth_uri);
 
 const app = express();
 const server = http.createServer(app);
-app.use(cors({ origin: "*" }));
+app.use(cors({ origin: "*" }), express.static("public"));
 
 // -----------------------------------------------
 // Socket server
@@ -46,14 +47,11 @@ let twitch;
 
 const botAuthProvider = new StaticAuthProvider(botName, botOAuthToken);
 const chatbot = require("./src/chatbot.js");
+(async () => await chatbot.start(botAuthProvider, twitch, io, [streamer]))();
 
 // -----------------------------------------------
 // Endpoints
 // -----------------------------------------------
-
-app.get("/", (req, res) => {
-  res.sendStatus(200);
-});
 
 app.get("/connect", (req, res) => {
   res.redirect(oauth_uri);
@@ -70,12 +68,11 @@ app.get("/token", (req, res) => {
     params: { client_id, client_secret, code, redirect_uri, grant_type },
   })
     .then((response) => {
-      const token = response.data.access_token;
-      res.redirect(react_uri + "?token=" + token);
+      res.json(response.data);
       console.log(response.data);
     })
     .catch((err) => {
-      res.redirect(react_uri);
+      res.send(err);
       console.log(err.response.status);
     });
 });
@@ -90,10 +87,11 @@ app.get("/verify", (req, res) => {
   })
     .then((response) => {
       res.json(response.data);
+      console.log(response.status);
       console.log(response.data);
     })
     .catch((err) => {
-      res.sendStatus(err.response.status);
+      res.send(err);
       console.log(err.response.status);
     });
 });
@@ -109,44 +107,40 @@ app.get("/disconnect", (req, res) => {
   })
     .then((response) => {
       res.json(response.data);
+      console.log(response.status);
       console.log(response.data);
     })
     .catch((err) => {
-      res.sendStatus(err.response.status);
+      res.send(err);
       console.log(err.response.status);
     });
 });
 
-app.get("/chatbot/:active", (req, res) => {
+app.get("/chatbot", (req, res) => {
+  const active = chatbot.isConnected();
+  console.log("Chatbot:", { active });
+  res.json({ active });
+});
+
+app.get("/chatbot/:active", async (req, res) => {
   const active = req.params.active;
   const channels = req.query.channels;
   if (active === "on") {
     if (!channels) {
       res.status(BAD_REQUEST).send("Missing arguments: channels.");
-    } else if (chatbot && chatbot.isConnected) {
+    } else if (chatbot && chatbot.isConnected()) {
       res.status(UNAUTHORIZE).send("Chatbot already started.");
     } else {
-      chatbot.start(botAuthProvider, twitch, io, channels.split(","));
+      await chatbot.start(botAuthProvider, twitch, io, channels.split(","));
       res.json({ connected: true, channels });
     }
   } else if (active === "off") {
-    if (chatbot && chatbot.isConnected) {
-      chatbot.stop();
+    if (chatbot && chatbot.isConnected()) {
+      await chatbot.stop();
     }
     res.json({ connected: false });
   } else {
     res.sendStatus(NOT_FOUND);
-  }
-});
-
-app.get("/eventsub/:active", (req, res) => {
-  const active = req.params.active;
-  if (active === "on") {
-    res.json({ active });
-  } else if (active === "off") {
-    res.json({ active });
-  } else {
-    res.sendStatus(404);
   }
 });
 
