@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+    <style>
+      body {
+        position: relative;
+        height: 100vh;
+        width: 100%;
+        margin: 0;
+      }
+
+      #gif-wrap {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        margin: auto;
+        background-color: transparent;
+        /* background-color: yellowgreen; */
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        z-index: -1;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="gif-wrap"></div>
+    <script>
+      const socket = io("ws://192.168.1.87:8080");
+      // const socket = io("ws://localhost:8080");
+
+      const COMMAND_KEY = "gif";
+      const GIF_DURATION = 7;
+      const BASE_URLS = ["https://api.giphy.com/v1/gifs/", "https://api.giphy.com/v1/stickers/"];
+      const API_KEY = "0UTRbFtkMxAplrohufYco5IY74U8hOes";
+      const DEFAULT_TAG = "fail";
+      const TYPE = "random";
+      const RATING = "pg";
+      // y: Appropriate for all children
+      // g: General audiences (default)
+      // pg: Parental guidance suggested
+      // pg-13: Parents strongly cautioned
+      // r: Restricted
+
+      let tag = DEFAULT_TAG;
+      let refresh;
+      const gif_wrap = document.querySelector("#gif-wrap");
+
+      const getGiphyURL = () => {
+        const url = BASE_URLS[Math.floor(Math.random() * BASE_URLS.length)];
+        const giphy = { baseURL: url, apiKey: API_KEY, tag: tag, type: TYPE, rating: RATING };
+        console.log(`Requested tag: ${tag}, url: ${url}`);
+        return encodeURI(
+          giphy.baseURL + giphy.type + "?api_key=" + giphy.apiKey + "&tag=" + giphy.tag + "&rating=" + giphy.rating
+        );
+      };
+
+      const newGif = () =>
+        fetch(getGiphyURL())
+          .then((data) => data.json())
+          .then((json) => renderGif(json.data));
+
+      const renderGif = (_giphy) => {
+        console.log(_giphy);
+        gif_wrap.style["background-image"] = 'url("' + _giphy.images.original.url + '")';
+        refreshRate();
+      };
+
+      const refreshRate = () => {
+        clearInterval(refresh);
+        refresh = setInterval(function () {
+          newGif();
+        }, 1000 * GIF_DURATION);
+      };
+
+      newGif();
+
+      socket.emit("room", COMMAND_KEY);
+      socket.on("tag", (text) => {
+        tag = text;
+        newGif();
+      });
+    </script>
+  </body>
+</html>
