@@ -37,7 +37,7 @@
       const GIF_DURATION = 7;
       const BASE_URLS = ["https://api.giphy.com/v1/gifs/", "https://api.giphy.com/v1/stickers/"];
       const API_KEY = "0UTRbFtkMxAplrohufYco5IY74U8hOes";
-      const DEFAULT_TAG = "fail";
+      const DEFAULT_TAG = "welcome";
       const TYPE = "random";
       const RATING = "pg";
       // y: Appropriate for all children
@@ -79,10 +79,14 @@
 
       newGif();
 
-      socket.emit("room", COMMAND_KEY);
-      socket.on("tag", (text) => {
-        tag = text;
-        newGif();
+      socket.on("chat", (text) => {
+        if (text.startsWith("!gif ")) {
+          const split = text.split(" ");
+          if (split.length > 1) {
+            tag = split.slice(1).find(el => el !== "")
+            newGif();
+          }
+        }
       });
     </script>
   </body>

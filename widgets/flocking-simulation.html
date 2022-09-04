@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.4.1/lib/p5.js"></script>
+    <style>
+      html,
+      body,
+      main {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <main></main>
+    <script>
+      const BOID_SIZE = 10;
+      const SEPARATION = BOID_SIZE + 40;
+      const ALIGNEMENT = SEPARATION + 50;
+      const COHESION = ALIGNEMENT + 70;
+
+      const SEPARATION_WEIGHT = 1.5;
+      const ALIGNEMENT_WEIGHT = 1;
+      const COHESION_WEIGHT = 1;
+
+      const MAX_SPEED = 6;
+      const MAX_ROTATION = Math.QUARTER_PI / 6;
+      const DEGREE = 0.0174533;
+
+      const FLOCK = [];
+      let BIG_BOID;
+
+      const avg = (arr) => arr.reduce((a, b) => a + b, 0) / (arr.length || 1);
+      const centroid = (boids) => ({ x: avg(boids.map((v) => v.x)), y: avg(boids.map((v) => v.y)) });
+      const avgSteer = (boids) => ({
+        speed: avg(boids.map((v) => v.speed)),
+        heading: avg(boids.map((v) => v.heading)),
+      });
+      const sqr = (x) => x * x;
+      const euclidian = (x1, y1, x2, y2) => Math.sqrt(sqr(y2 - y1) + sqr(x2 - x1));
+      const polarToCartesian = (r, theta) => ({ x: r * Math.cos(theta), y: r * Math.sin(theta) });
+      const cartesianToPolar = (x, y) => ({ r: Math.sqrt(sqr(x) + sqr(y)), theta: Math.atan2(y, x) });
+      const randomBetween = (min, max) => Math.random() * (max - min) + min;
+      const randomX = () => randomBetween(0, width);
+      const randomY = () => randomBetween(0, height);
+      const randomHeading = () => randomBetween(0, TWO_PI);
+      const randomSpeed = () => randomBetween(0.1, MAX_SPEED);
+
+      const BOID_TRIANGLE = {
+        p1: polarToCartesian(BOID_SIZE, 0),
+        p2: polarToCartesian(BOID_SIZE, (3 * Math.PI) / 4),
+        p3: polarToCartesian(BOID_SIZE, (-3 * Math.PI) / 4),
+      };
+
+      class Boid {
+        constructor(x0, y0, speed0, heading0, c) {
+          this.x = x0;
+          this.y = y0;
+          this.speed = speed0;
+          this.heading = heading0;
+          this.color = c;
+        }
+
+        getNeighbors(flock, min, max) {
+          const neighbors = [];
+          for (const boid of flock) {
+            if (boid !== this) {
+              const dist = euclidian(this.x, this.y, boid.x, boid.y);
+              if (min < dist && dist <= max) {
+                neighbors.push(boid);
+              }
+            }
+          }
+          return neighbors;
+        }
+
+        showHeading() {
+          let target = polarToCartesian(2 * BOID_SIZE, this.heading);
+          target.x += this.x;
+          target.y += this.y;
+          line(this.x, this.y, target.x, target.y);
+        }
+
+        updateSteer(flock) {
+          // this.showHeading();
+
+          let target = { x: 0, y: 0 };
+          let weights = 0;
+
+          // Optimization
+          let neighbors = this.getNeighbors(flock, 0, COHESION);
+
+          // Cohesion
+          const cohNeighbors = this.getNeighbors(neighbors, ALIGNEMENT, COHESION);
+          const cohesion = centroid(cohNeighbors);
+          const reach = {
+            x: COHESION_WEIGHT * cohesion.x,
+            y: COHESION_WEIGHT * cohesion.y,
+          };
+
+          if (cohesion.x !== 0 && cohesion.y !== 0) {
+            target.x += reach.x;
+            target.y += reach.y;
+            weights += 1;
+          }
+
+          // Separation
+          const sepNeighbors = this.getNeighbors(neighbors, 0, SEPARATION);
+          const separation = centroid(sepNeighbors);
+          const flee = {
+            x: this.x + SEPARATION_WEIGHT * (this.x - separation.x),
+            y: this.y + SEPARATION_WEIGHT * (this.y - separation.y),
+          };
+
+          if (separation.x !== 0 && separation.y !== 0) {
+            target.x += flee.x;
+            target.y += flee.y;
+            weights += 1;
+          }
+
+          target.x /= weights;
+          target.y /= weights;
+
+          // Alignement
+          const aliNeighbors = this.getNeighbors(neighbors, SEPARATION, ALIGNEMENT);
+          const alignement = avgSteer(aliNeighbors);
+
+          if (this === BIG_BOID) {
+            strokeWeight(2);
+
+            if (cohNeighbors.length && sepNeighbors.length) {
+              stroke("magenta");
+              fill("magenta");
+              line(cohesion.x, cohesion.y, flee.x, flee.y);
+              line(this.x, this.y, target.x, target.y)
+              ellipse(target.x, target.y, 5);
+            }
+
+            if (cohNeighbors.length) {
+              stroke("blue");
+              fill("blue");
+              cohNeighbors.forEach((n) => line(n.x, n.y, cohesion.x, cohesion.y));
+              line(this.x, this.y, cohesion.x, cohesion.y);
+              ellipse(cohesion.x, cohesion.y, 5);
+              stroke("cyan");
+              fill("cyan");
+              line(this.x, this.y, reach.x, reach.y);
+              ellipse(reach.x, reach.y, 5);
+            }
+
+            if (sepNeighbors.length) {
+              stroke("red");
+              fill("red");
+              sepNeighbors.forEach((n) => line(n.x, n.y, separation.x, separation.y));
+              line(this.x, this.y, separation.x, separation.y);
+              ellipse(separation.x, separation.y, 5);
+              stroke("darkred");
+              fill("darkred");
+              line(this.x, this.y, flee.x, flee.y);
+              ellipse(flee.x, flee.y, 5);
+            }
+
+            const currentSteer = polarToCartesian(3 * BOID_SIZE, this.heading);
+            stroke("orange");
+            line(this.x, this.y, this.x + currentSteer.x, this.y + currentSteer.y);
+
+            if (aliNeighbors.length) {
+              stroke("green");
+              fill("green");
+              aliNeighbors.forEach((n) => {
+                const cap = polarToCartesian(2 * BOID_SIZE, n.heading);
+                line(n.x, n.y, n.x + cap.x, n.y + cap.y);
+                ellipse(n.x, n.y, 5);
+              });
+              const steer = polarToCartesian(2 * BOID_SIZE, alignement.heading);
+              line(this.x, this.y, this.x + steer.x, this.y + steer.y);
+            }
+          }
+
+          this.heading += map(randomGaussian(0, 0.4), 0, 1, 0, Math.PI / 128);
+          // this.heading += randomBetween(-2 * DEGREE, 2 * DEGREE);
+        }
+
+        step(flock) {
+          this.updateSteer(flock);
+          const target = polarToCartesian(this.speed, this.heading);
+          let x = this.x + target.x;
+          let y = this.y + target.y;
+          this.x = x < 0 ? width : x > width ? 0 : x;
+          this.y = y < 0 ? height : y > height ? 0 : y;
+        }
+
+        render() {
+          strokeWeight(1);
+          stroke(0);
+          fill(this.color);
+          push();
+          translate(this.x, this.y);
+          rotate(this.heading);
+          triangle(
+            BOID_TRIANGLE.p1.x,
+            BOID_TRIANGLE.p1.y,
+            BOID_TRIANGLE.p2.x,
+            BOID_TRIANGLE.p2.y,
+            BOID_TRIANGLE.p3.x,
+            BOID_TRIANGLE.p3.y
+          );
+          pop();
+        }
+
+        static generate() {
+          return new Boid(randomX(), randomY(), randomSpeed(), randomHeading(), color(255));
+        }
+      }
+
+      function setup() {
+        const main = document.querySelector("main");
+        createCanvas(main.clientWidth, main.clientHeight);
+        frameRate(24);
+        for (let i = 0; i < 100; i++) {
+          FLOCK.push(Boid.generate());
+        }
+        BIG_BOID = Boid.generate();
+        BIG_BOID.color = color("orange");
+        FLOCK.push(BIG_BOID);
+      }
+
+      function draw() {
+        clear();
+        background(100, 100, 100);
+        for (const boid of FLOCK) {
+          boid.render();
+          boid.step(FLOCK);
+        }
+      }
+
+      function mouseClicked() {
+        FLOCK.push(new Boid(mouseX, mouseY, randomHeading(), randomSpeed(), color(255)));
+      }
+
+      const socket = io("ws://localhost:8080");
+      socket.emit("room", "flock");
+      socket.on("boid", (text) => {
+        const b = Boid.generate();
+        b.color = color(text);
+        FLOCK.push(b);
+      });
+    </script>
+  </body>
+</html>

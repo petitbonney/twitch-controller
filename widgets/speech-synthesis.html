@@ -1,32 +1,24 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
-  </head>
-  <body>
-    <script>
-      const socket = io("ws://192.168.1.87:8080");
-      // const socket = io("ws://localhost:8080");
+<script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+<script>
+  const socket = io("ws://192.168.1.87:8080");
+  // const socket = io("ws://localhost:8080");
 
-      let voices;
-      speechSynthesis.onvoiceschanged = () => {
-        voices = speechSynthesis.getVoices();
-        voices = voices.filter((v) => v.lang === "fr-FR");
-        console.log(voices);
-      };
+  let voices;
+  speechSynthesis.onvoiceschanged = () => {
+    voices = speechSynthesis.getVoices();
+    voices = voices.filter((v) => v.lang === "fr-FR");
+    console.log(voices);
+  };
 
-      const speak = (text) => {
-        console.log(text);
-        const speech = new SpeechSynthesisUtterance(text);
-        const voice = voices[Math.floor(Math.random() * voices.length)];
-        speech.voice = voice;
-        speechSynthesis.speak(speech);
-      };
+  const speak = (text) => {
+    console.log(text);
+    const speech = new SpeechSynthesisUtterance(text);
+    const voice = voices[Math.floor(Math.random() * voices.length)];
+    speech.voice = voice;
+    speechSynthesis.speak(speech);
+  };
 
-      socket.emit("room", "speech-synthesis");
-      socket.on("speech", (text) => {
-        speak(text);
-      });
-    </script>
-  </body>
-</html>
+  socket.on("speech", (text) => {
+    speak(text);
+  });
+</script>

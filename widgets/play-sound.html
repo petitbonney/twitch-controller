@@ -1,19 +1,12 @@
-<html>
-  <head>
-    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
-  </head>
-  <body>
-    <script>
-      const MAX_TIME = 7000; // ms
-      const socket = io("ws://192.168.1.87:8080");
-      // const socket = io("ws://localhost:8080");
-      socket.emit("room", "play-sound");
-      socket.on("play", (sound) => {
-        console.log("Playing", sound);
-        const audio = new Audio(sound);
-        audio.play();
-        setTimeout(() => audio.pause(), MAX_TIME);
-      });
-    </script>
-  </body>
-</html>
+<script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+<script>
+  const MAX_TIME = 7000; // ms
+  const socket = io("ws://192.168.1.87:8080");
+  // const socket = io("ws://localhost:8080");
+  socket.on("sound", (sound) => {
+    console.log("Playing", sound);
+    const audio = new Audio(sound);
+    audio.play();
+    setTimeout(() => audio.pause(), MAX_TIME);
+  });
+</script>
