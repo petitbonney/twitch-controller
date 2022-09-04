@@ -1,0 +1,55 @@
+<script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.27.2/axios.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/levenshtein/1.0.5/levenshtein.min.js"></script>
+<script>
+  const LEVENSHTEIN_TRESHOLD = 2;
+
+  const socket = io("ws://192.168.1.87:8080");
+  // const socket = io("ws://localhost:8080");
+
+  let instants = {};
+
+  axios
+    .get(
+      "https://gist.githubusercontent.com/petitbonney/ec17fbc4cce881cb34f11213d2e4fb14/raw/b38d85fd87ff67bb0cbcddab0f46048e2b385f1f/my-instants.json"
+    )
+    .then((res) => (instants = res.data));
+
+  const findInstant = (instants, search) => {
+    let minDist, nearestSlug, nearestSound;
+    for (const [slug, sound] of Object.entries(instants)) {
+      // search in slug
+      if (slug.includes(search)) {
+        return [slug, sound];
+      }
+
+      // levenshtein < threshold
+      const dist = Math.min(slug.split("-").map((s) => new Levenshtein(s, search).distance));
+      if (dist < LEVENSHTEIN_TRESHOLD) {
+        return [slug, sound];
+      }
+
+      // nearest
+      if (!minDist || dist < minDist) {
+        minDist = dist;
+        nearestSlug = slug;
+        nearestSound = sound;
+      }
+    }
+    return [nearestSlug, nearestSound];
+  };
+
+  socket.on("chat", (channel, user, message, tags) => {
+    if (tags["custom-reward-id"] === "3aef65a4-b349-4ddb-bf1d-7bb2ce63c9ab") {
+      let slug = message;
+      let sound = instants[slug];
+      if (!sound) {
+        [slug, sound] = findInstant(instants, slug.toLowerCase());
+      }
+      if (sound) {
+        socket.emit("sound", sound);
+        console.log({ slug, sound });
+      }
+    }
+  });
+</script>

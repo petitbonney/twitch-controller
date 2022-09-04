@@ -34,7 +34,14 @@
 
   chatClient.onMessage(async (channel, user, message, msg) => {
     console.log(user, message);
-    io.emit("chat", channel, user, message, msg);
+    const tags = Object.assign(
+      {},
+      ...msg._raw
+        .split(";")
+        .map((x) => x.split("="))
+        .map((x) => ({ [x[0]]: x[1] }))
+    );
+    io.emit("chat", channel, user, message, tags);
   });
 
   io.on("connection", (socket) => {

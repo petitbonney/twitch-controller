@@ -79,7 +79,7 @@
 
       newGif();
 
-      socket.on("chat", (channel, user, message, msg) => {
+      socket.on("chat", (channel, user, message, tags) => {
         console.log(user, message);
         const split = message.split(" ");
         if (split[0] === "!gif") {

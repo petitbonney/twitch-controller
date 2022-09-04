@@ -4,10 +4,9 @@
   // const socket = io("ws://localhost:8080");
 
   socket.on("chat", (channel, user, message, tags) => {
-    console.log(channel, user, message, tags);
-    const split = message.split(" ");
-    if (split[0] === "!echo") {
-      socket.emit("say", split.slice(1).join(" "));
+    if (tags["msg-id"] === "highlighted-message") {
+      console.log(message);
+      socket.emit("speech", message);
     }
   });
 </script>
