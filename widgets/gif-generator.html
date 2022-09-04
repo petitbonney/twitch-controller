@@ -79,12 +79,16 @@
 
       newGif();
 
-      socket.on("chat", (text) => {
-        if (text.startsWith("!gif ")) {
-          const split = text.split(" ");
+      socket.on("chat", (channel, user, message, msg) => {
+        console.log(user, message);
+        const split = message.split(" ");
+        if (split[0] === "!gif") {
           if (split.length > 1) {
-            tag = split.slice(1).find(el => el !== "")
+            tag = split[1];
             newGif();
+            socket.emit("say", `@${user} a choisi le thème du gif suivant : ${tag}`);
+          } else {
+            socket.emit("say", `@${user} Il manque un truc bro. Essaie !gif cat`);
           }
         }
       });
