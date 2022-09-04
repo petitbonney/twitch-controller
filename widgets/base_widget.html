@@ -1,0 +1,13 @@
+<script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+<script>
+  const socket = io("ws://192.168.1.87:8080");
+  // const socket = io("ws://localhost:8080");
+
+  socket.on("chat", (channel, user, message, msg) => {
+    console.log(channel, user, message, msg);
+    const split = message.split(" ");
+    if (split[0] === "!echo") {
+      socket.emit("say", split.slice(1).join(" "));
+    }
+  });
+</script>
