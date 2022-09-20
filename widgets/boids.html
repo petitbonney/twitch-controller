@@ -1,0 +1,216 @@
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.4.2/lib/p5.js"></script>
+</head>
+
+<style>
+  body,
+  main {
+    margin: 0;
+    height: 100%;
+    background: beige;
+  }
+</style>
+
+<body>
+  <main></main>
+</body>
+
+<script>
+  const FPS = 60;
+
+  const INIT = 50;
+  const BOID_SIZE = 3;
+
+  const SEPARATION_FACTOR = 0.7;
+  const ALIGNEMENT_FACTOR = 0.2;
+  const COHESION_FACTOR = 0.5;
+  const CRAZYNESS_FACTOR = 0.3;
+
+  const SEPARATION_RANGE = 35;
+  const ALIGNEMENT_RANGE = SEPARATION_RANGE + 20;
+  const COHESION_RANGE = ALIGNEMENT_RANGE + 50;
+
+  const MAX_SPEED = 3;
+  const MAX_FORCE = 0.1;
+
+  const BOIDS = [];
+
+  const randomColor = () => color(random(255), random(100, 200), random(100));
+
+  function setup() {
+    const main = document.querySelector("main");
+    createCanvas(main.clientWidth, main.clientHeight);
+    frameRate(FPS);
+
+    for (let i = 0; i < INIT; i++) {
+      BOIDS.push(Boid.generate());
+    }
+  }
+
+  function draw() {
+    clear();
+    for (const b of BOIDS) {
+      b.update();
+      b.render();
+    }
+  }
+
+  function mouseClicked() {
+    const b = Boid.generate();
+    b.position.x = mouseX;
+    b.position.y = mouseY;
+    BOIDS.push(b);
+  }
+
+  function shape() {
+    beginShape();
+    vertex(BOID_SIZE * 4, 0);
+    vertex(-BOID_SIZE, BOID_SIZE * 2);
+    vertex(0, 0);
+    vertex(-BOID_SIZE, -BOID_SIZE * 2);
+    endShape(CLOSE);
+  }
+
+  class Boid {
+    constructor(position, velocity, color = randomColor()) {
+      this.acceleration = new p5.Vector();
+      this.velocity = velocity;
+      this.position = position;
+      this.color = color;
+    }
+
+    static generate() {
+      return new Boid(
+        new p5.Vector(random(0, width), random(0, height)),
+        p5.Vector.random2D()
+      );
+    }
+
+    render() {
+      fill(this.color);
+      noStroke();
+      push();
+      translate(this.position);
+      rotate(this.velocity.heading());
+      shape();
+      pop();
+    }
+
+    update() {
+      const neighbors = this.neighborhood(BOIDS, COHESION_RANGE);
+      const separationNeighbors = this.neighborhood(
+        neighbors,
+        SEPARATION_RANGE
+      );
+      const alignementNeighbors = this.neighborhood(
+        neighbors,
+        ALIGNEMENT_RANGE,
+        separationNeighbors
+      );
+      const cohesionNeighbors = this.neighborhood(
+        neighbors,
+        COHESION_RANGE,
+        separationNeighbors.concat(alignementNeighbors)
+      );
+
+      this.separation(separationNeighbors);
+      this.alignement(alignementNeighbors);
+      this.cohesion(cohesionNeighbors);
+      this.crazyness();
+
+      this.wrap();
+      this.position.add(this.velocity);
+      this.velocity.add(this.acceleration);
+      this.acceleration = new p5.Vector();
+    }
+
+    wrap() {
+      if (this.position.x < 0) {
+        this.position.x = width;
+      } else if (this.position.x >= width) {
+        this.position.x = 0;
+      }
+      if (this.position.y < 0) {
+        this.position.y = height;
+      } else if (this.position.y >= height) {
+        this.position.y = 0;
+      }
+    }
+
+    neighborhood(boids, maxRange, exclude = []) {
+      return boids.filter(
+        (b) =>
+          b !== this &&
+          !exclude.includes(b) &&
+          maxRange > this.position.dist(b.position)
+      );
+    }
+
+    separation(boids) {
+      if (!boids || boids.length == 0) {
+        return;
+      }
+
+      const target = new p5.Vector();
+      for (const other of boids) {
+        const d = this.position.dist(other.position);
+        const diff = p5.Vector.sub(this.position, other.position);
+        diff.div(d * d);
+        target.add(diff);
+      }
+
+      target.div(boids.length);
+      target.setMag(MAX_SPEED);
+      const force = p5.Vector.sub(target, this.velocity);
+      force.limit(MAX_FORCE);
+      force.mult(SEPARATION_FACTOR);
+      this.acceleration.add(force);
+    }
+
+    alignement(boids) {
+      if (!boids || boids.length == 0) {
+        return;
+      }
+
+      const target = new p5.Vector();
+      for (const other of boids) {
+        const d = this.position.dist(other.position);
+        target.add(other.velocity);
+      }
+
+      target.div(boids.length);
+      target.setMag(MAX_SPEED);
+      const force = p5.Vector.sub(target, this.velocity);
+      force.limit(MAX_FORCE);
+      force.mult(ALIGNEMENT_FACTOR);
+      this.acceleration.add(force);
+    }
+
+    cohesion(boids) {
+      if (!boids || boids.length == 0) {
+        return;
+      }
+
+      const center = new p5.Vector();
+      for (const other of boids) {
+        const d = this.position.dist(other.position);
+        center.add(other.position);
+      }
+
+      center.div(boids.length);
+      const target = p5.Vector.sub(center, this.position);
+      target.setMag(MAX_SPEED);
+      const force = p5.Vector.sub(target, this.velocity);
+      force.limit(MAX_FORCE);
+      force.mult(COHESION_FACTOR);
+      this.acceleration.add(force);
+    }
+
+    crazyness() {
+      const force = p5.Vector.random2D();
+      force.limit(MAX_FORCE);
+      force.mult(CRAZYNESS_FACTOR);
+      this.acceleration.add(force)
+    }
+  }
+</script>
