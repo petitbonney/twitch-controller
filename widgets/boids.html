@@ -1,4 +1,5 @@
 <head>
+  <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/p5@1.4.2/lib/p5.js"></script>
 </head>
 
@@ -7,7 +8,7 @@
   main {
     margin: 0;
     height: 100%;
-    background: beige;
+    /* background: beige; */
   }
 </style>
 
@@ -16,22 +17,25 @@
 </body>
 
 <script>
-  const FPS = 60;
+  const FPS = 30;
 
-  const INIT = 50;
-  const BOID_SIZE = 3;
+  const INIT = 30;
+  const BOID_SIZE = 6;
 
   const SEPARATION_FACTOR = 0.7;
   const ALIGNEMENT_FACTOR = 0.2;
   const COHESION_FACTOR = 0.5;
-  const CRAZYNESS_FACTOR = 0.3;
+  const CRAZYNESS_FACTOR = 0.2;
+  const BOUND_REPULSION_FACTOR = 0.1;
 
-  const SEPARATION_RANGE = 35;
+  const SEPARATION_RANGE = 30;
   const ALIGNEMENT_RANGE = SEPARATION_RANGE + 20;
   const COHESION_RANGE = ALIGNEMENT_RANGE + 50;
+  const MARGIN_RANGE = 100;
 
-  const MAX_SPEED = 3;
-  const MAX_FORCE = 0.1;
+  const MAX_SPEED = 10;
+  const MAX_FORCE = 0.5;
+  const MAX_BOIDS = 30;
 
   const BOIDS = [];
 
@@ -80,10 +84,7 @@
     }
 
     static generate() {
-      return new Boid(
-        new p5.Vector(random(0, width), random(0, height)),
-        p5.Vector.random2D()
-      );
+      return new Boid(new p5.Vector(random(0, width), random(0, height)), p5.Vector.random2D());
     }
 
     render() {
@@ -98,15 +99,8 @@
 
     update() {
       const neighbors = this.neighborhood(BOIDS, COHESION_RANGE);
-      const separationNeighbors = this.neighborhood(
-        neighbors,
-        SEPARATION_RANGE
-      );
-      const alignementNeighbors = this.neighborhood(
-        neighbors,
-        ALIGNEMENT_RANGE,
-        separationNeighbors
-      );
+      const separationNeighbors = this.neighborhood(neighbors, SEPARATION_RANGE);
+      const alignementNeighbors = this.neighborhood(neighbors, ALIGNEMENT_RANGE, separationNeighbors);
       const cohesionNeighbors = this.neighborhood(
         neighbors,
         COHESION_RANGE,
@@ -119,6 +113,7 @@
       this.crazyness();
 
       this.wrap();
+      this.keepInBounds();
       this.position.add(this.velocity);
       this.velocity.add(this.acceleration);
       this.acceleration = new p5.Vector();
@@ -137,13 +132,23 @@
       }
     }
 
+    keepInBounds() {
+      if (this.position.x < MARGIN_RANGE) {
+        this.velocity.x += BOUND_REPULSION_FACTOR;
+      }
+      if (this.position.x > width - MARGIN_RANGE) {
+        this.velocity.x -= BOUND_REPULSION_FACTOR;
+      }
+      if (this.position.y < MARGIN_RANGE) {
+        this.velocity.y += BOUND_REPULSION_FACTOR;
+      }
+      if (this.position.y > height - MARGIN_RANGE) {
+        this.velocity.y -= BOUND_REPULSION_FACTOR;
+      }
+    }
+
     neighborhood(boids, maxRange, exclude = []) {
-      return boids.filter(
-        (b) =>
-          b !== this &&
-          !exclude.includes(b) &&
-          maxRange > this.position.dist(b.position)
-      );
+      return boids.filter((b) => b !== this && !exclude.includes(b) && maxRange > this.position.dist(b.position));
     }
 
     separation(boids) {
@@ -210,7 +215,17 @@
       const force = p5.Vector.random2D();
       force.limit(MAX_FORCE);
       force.mult(CRAZYNESS_FACTOR);
-      this.acceleration.add(force)
+      this.acceleration.add(force);
     }
   }
+
+  const socket = io("ws://192.168.1.87:8080");
+  socket.on("chat", (channel, user, message, tags) => {
+    const b = Boid.generate();
+    b.color = color(tags.color || randomColor());
+    if (BOIDS.length > MAX_BOIDS) {
+      BOIDS.pop();
+    }
+    BOIDS.splice(1, 0, b);
+  });
 </script>

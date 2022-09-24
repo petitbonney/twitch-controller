@@ -1,54 +1,42 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <link href="http://fonts.cdnfonts.com/css/ds-digital" rel="stylesheet" />
-    <link href="colors.css" rel="stylesheet" />
-    <style>
-      body {
-        margin: 0;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-      }
+<style>
+  @import url("http://fonts.cdnfonts.com/css/ds-digital");
 
-      .wrapper {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-      }
+  html {
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  body {
+    margin: 0;
+    flex: 1;
+  }
+  .clock {
+    font-family: "DS-Digital", sans-serif;
+    color: #ffd100;
+    text-shadow: #ff3a00 1px 1px 0, #333 2px 3px 10px;
+  }
+</style>
 
-      #clock {
-        padding-right: 5px;
-        font-family: "DS-Digital", sans-serif;
-        color: #ffd100;
-        text-shadow: #ff3a00 1px 1px 0, #333 2px 3px 10px;
-      }
-    </style>
-  </head>
+<body>
+  <h1 class="clock"></h1>
+</body>
 
-  <body>
-    <div class="wrapper">
-      <h1 id="clock"></h1>
-    </div>
-    <script>
-      const clock = document.querySelector("#clock");
+<script>
+  const clock = document.querySelector(".clock");
 
-      const getTime = () => {
-        console.log(new Date().toTimeString().slice(0, 8));
-        clock.textContent = new Date().toTimeString().slice(0, 5);
-      };
+  const pad = (x) => (x < 10 ? "0" + x : x);
 
-      let refresh;
-      const refreshRate = () => {
-        clearInterval(refresh);
-        refresh = setInterval(function () {
-          getTime();
-          refreshRate();
-        }, 1000 * 1);
-      };
+  const tick = () => {
+    const d = new Date();
 
-      refreshRate();
-    </script>
-  </body>
-</html>
+    const h = pad(d.getHours());
+    const m = pad(d.getMinutes());
+
+    const currentTime = [h, m].join(":");
+    clock.innerHTML = currentTime;
+  };
+
+  tick();
+  setInterval(tick, 1000);
+</script>
